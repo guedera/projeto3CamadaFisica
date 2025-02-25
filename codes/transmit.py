@@ -4,8 +4,9 @@ import numpy as np
 from autolimpa import clear_terminal
 from separa import separa
 from datagramas import datagrama
+from certo import certo
 
-serialName = "/dev/ttyACM1"
+serialName = "/dev/ttyACM0"
 
 def main():
     try:
@@ -19,24 +20,32 @@ def main():
         time.sleep(0.2)
 
         com1.rx.clearBuffer()
+        clear_terminal()
 
         imageR = "codes/img/image.png"
+        bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
+        bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
 
-        bytes_imagem = open(imageR, 'rb').read()
+        i = 0
 
-        bytes_partes = separa(bytes_imagem)
-
-        for i in range(len(bytes_partes)):
+        while i < len(bytes_partes):
             data = datagrama(bytes_partes[i],i,1,0,0)
             txBuffer = data
             com1.sendData(txBuffer)
+
             print("Pacote {} enviado!".format(i))
             time.sleep(0.5)
-            #agora tenho que confirmar que o server recebeu certo
-            
 
+            rxBuffer = com1.getData(15)
 
+            if certo(rxBuffer,i):
+                print("Pacote {} confirmado!".format(i))
+                i += 1
 
+            else:
+                print("Enviando o pacote {} novamente!".format(i))
+                time.sleep(0.5)
+                
         com1.sendData(np.asarray(txBuffer))
         
         print("Pacote enviado!")
