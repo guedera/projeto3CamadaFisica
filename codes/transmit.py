@@ -2,6 +2,7 @@ from enlace import *
 import time
 import numpy as np
 from autolimpa import clear_terminal
+from separa import separa
 
 serialName = "/dev/ttyACM1"
 
@@ -20,8 +21,10 @@ def main():
 
         imageR = "codes/img/image.png"
 
-        txBuffer = open(imageR, 'rb').read()
+        bytes_imagem = open(imageR, 'rb').read()
 
+        bytes_partes = separa(bytes_imagem)
+        
         #aqui dividiremos a imagem em pacotes!!
 
         imagem = bytearray(b'1') #exemplo, aqui vai o pacote!!!
