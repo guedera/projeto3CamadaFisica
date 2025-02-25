@@ -1,17 +1,8 @@
 # Projeto 3 - Camada Física da Computação
 
-- mensagem pra datagrama
+Head 12 bytes
 
-- envia
+payload 0 - 70 bytes
 
-- recebe
+EOP 3 bytes (0xAA 0xBB 0xCC)
 
-- checa se recebeu tudo
-
-- mensagem pra datagrama de confirmacao
-
-- envia
-
-- recebe
-
-- refaz qlqr coisa
