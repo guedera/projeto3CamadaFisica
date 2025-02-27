@@ -1,14 +1,14 @@
 from separa import separa
 
-def datagrama(bytes_entrada,n_pacote,tipo,erro:int,sucesso:int) -> list:
-    h0 = tipo.to_bytes(1, 'big') #handhsake = 0, carga = 1
+def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int) -> list:
+    h0 = tipo.to_bytes(1, 'big') #handhsake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
     h1 = tipo.to_bytes(1, 'big')
     h2 = tipo.to_bytes(1, 'big')
     h3 = len(bytes_entrada).to_bytes(1, 'big')
     h4 = n_pacote.to_bytes(1, 'big')
-    if tipo == 0: #handshake
-        h5 = h0 #mudar
-    else:
+    if tipo == 1: #handshake
+        h5 = id #mudar
+    if tipo == 3:
         h5 = len(bytes_entrada).to_bytes(1, 'big') #mudar
 
     h6 = erro.to_bytes(1, 'big') #mudar

@@ -4,12 +4,13 @@ import numpy as np
 from autolimpa import clear_terminal
 from separa import separa
 from datagramas import datagrama
-from certo import certo, handshake
+from certo import check_h0, certo
 
 serialName = "/dev/ttyACM0"
 
 def main():
     try:
+        numero_server = 8
         print("Iniciou o main")
         com1 = enlace(serialName)
         com1.enable()
@@ -32,7 +33,7 @@ def main():
             print("-------------------------")
 
             load_hs = b'0'
-            txBuffer = datagrama(load_hs,0,0,0,0) #Tipo 0 é handshake (3º argumento da função datagrama)
+            txBuffer = datagrama(load_hs,1,1,0,0,numero_server) #handshake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
 
             com1.sendData(txBuffer)
             print("Pacote de handshake enviado!")
@@ -45,7 +46,7 @@ def main():
             print("Esperando resposta...")
             rxBuffer = com1.getData(16) #16 bytes pois o payload é de 1 byte (pra função datagrama não dar erro)
 
-            if handshake(rxBuffer,0): #check se o pacote é de handshake
+            if check_h0(rxBuffer,2): #check se o pacote é de handshake (2 pelo server)
                 print("Handshake confirmado!")
                 comprimento = True #sai do loop do handshake
                 com1.rx.clearBuffer()
@@ -62,9 +63,9 @@ def main():
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
         bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
 
-        i = 0
+        i = 1
         while i < len(bytes_partes):
-            data = datagrama(bytes_partes[i],i,1,0,0)
+            data = datagrama(bytes_partes[i],i,3,0,0,numero_server)
             txBuffer = data
             com1.sendData(txBuffer)
 
@@ -89,10 +90,20 @@ def main():
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
                 clear_terminal()
-
         
-        print("Imagem enviada!")
-        time.sleep(0.5)
+        rxBuffer = com1.rx.getData(16)
+
+        if certo(rxBuffer,len(bytes_partes)):
+            print("Pacote {} confirmado!".format(i))
+            print("Imagem enviada com sucesso!")
+            time.sleep(0.5)
+            clear_terminal()
+
+        else:
+            print("Erro na transmissão do pacote!")
+            time.sleep(0.5)
+            clear_terminal()
+        
 
         print("-------------------------")
         print("Comunicação encerrada")
