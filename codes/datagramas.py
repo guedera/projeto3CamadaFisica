@@ -6,10 +6,11 @@ def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int) -
     h2 = tipo.to_bytes(1, 'big')
     h3 = len(bytes_entrada).to_bytes(1, 'big')
     h4 = n_pacote.to_bytes(1, 'big')
-    if tipo == 1: #handshake
-        h5 = id #mudar
-    if tipo == 3:
-        h5 = len(bytes_entrada).to_bytes(1, 'big') #mudar
+    h5 = tipo.to_bytes(1, 'big') #provisoriamente
+    if tipo == 1 or tipo == 2: #handshake
+        h5 = id.to_bytes(1, 'big') #mudar
+    elif tipo == 3:
+        h5 = len(bytes_entrada).to_bytes(1, 'big')
 
     h6 = erro.to_bytes(1, 'big') #mudar
     h7 = sucesso.to_bytes(1, 'big') #mudar

@@ -6,7 +6,7 @@ from separa import separa
 from datagramas import datagrama
 from certo import check_h0, certo
 
-serialName = "/dev/ttyACM0"
+serialName = "/dev/ttyACM1"
 
 def main():
     try:

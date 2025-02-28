@@ -13,6 +13,6 @@ if False:
 
     parte = (separa(data))[0]
 
-    final = datagrama(parte,1,1,0,4)
-
-    print(check_h0(final,4))
+    final = datagrama(parte,1,2,2,2,2)
+    print(final)
+    print(check_h0(final,2))
