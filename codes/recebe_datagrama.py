@@ -15,6 +15,7 @@ def verifica_erro(h0,h3,h4,h5,h6,h7,pl,n):
     if h4 != n:
         erro += f'erro na sequencia. Esperado: {n}. Recebido: {h4} \n'
 
+    #caso dê algum erro, entra nessa função
     if erro:
         erro += f'O pacote que deve ser solicitado é o pacote de número {h6} \n'
         erro += f'O ultimo pacote recebido foi o {h7} \n'
@@ -25,28 +26,36 @@ def verifica_erro(h0,h3,h4,h5,h6,h7,pl,n):
 
 
 def verifica_dadosEoP(EoP:bytes):
-    aviso = ''
+    # \xAA\xBB\xCC
+    aviso = True
+    a = EoP[0]
+    b = EoP[1]
+    c =EoP[2]
 
-    if len(EoP) != 3:
-        aviso = "Erro no reebimento do EOP, está com um tamanho diferente do esperado!"
+    if a == '\xAA' and b == '\xBB' and c =='\xCC':
         return aviso
     
-    return "True" 
+    return not aviso 
 
 def verifica_tipo(h0,h1):
     if h0 == 1 : 
         # significa que a mensagem é do tipo 1 
         # ou seja terei os dados da qtd de pkcts enviados no total
         total_pkcts = h1
-        return 'Tipo1',h1
+        return 'Tipo1',total_pkcts
     
 
-def altera_byte(head:bytes, tipo, numero_pckt_recebido=None):
+def altera_byte(head:bytes, tipo, numero_pckt_recebido:int=None):
     head[0] = tipo
-    if tipo ==4:
-        head[1] = numero_pckt_recebido
+    if tipo == 4:
+        head[1] = numero_pckt_recebido.to_bytes('big')
 
     return head
+
+
+def verifica_pacote(pl,npckt,contador):
+    return npckt == contador #and pl == ????
+
 
 
 
