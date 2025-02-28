@@ -101,7 +101,6 @@ def main():
         #h0: tipo msg / h3: numero total de pckt arquivo/ h4: numero do pacote/ h5: handshake ou dado/ 
         # h6: pckt solicitado recomeço/ h7:numero pcktultimo sucesso
 
-        
         if verifica_tipo(h0,h1) == 'Tipo1':
            
 
