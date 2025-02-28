@@ -44,6 +44,8 @@ def main():
 
 
             print("Esperando resposta...")
+            timeout_5s(com1)
+
             rxBuffer = com1.getData(16) #16 bytes pois o payload é de 1 byte (pra função datagrama não dar erro)
 
             if check_h0(rxBuffer,2): #check se o pacote é de handshake (2 pelo server)
@@ -75,6 +77,8 @@ def main():
             print("Pacote {} enviado!".format(i))
             time.sleep(0.5)
 
+            timeout_5s(com1)
+
             rxBuffer = com1.getData(16) #16 da funcao, arrumar depois a logica juntos. mas vai funfar
 
             if certo(rxBuffer,i):
@@ -91,6 +95,8 @@ def main():
                 time.sleep(0.5)
                 clear_terminal()
         
+        print("Confirmando que tudo foi enviado recebido no server corretamente!")
+        timeout_5s(com1)
         rxBuffer = com1.rx.getData(16)
 
         if certo(rxBuffer,len(bytes_partes)):
@@ -104,7 +110,6 @@ def main():
             time.sleep(0.5)
             clear_terminal()
         
-
         print("-------------------------")
         print("Comunicação encerrada")
         print("-------------------------")
@@ -114,6 +119,15 @@ def main():
         print("ops! :-\\")
         print(erro)
         com1.disable()
+
+def timeout_5s(com1):
+    tempo_antes = time.time()
+    while tempo_antes - time.time() < 5:
+        if com1.rx.getBufferLen() == 16:
+            break
+        else:
+            print("Time out")
+            break
         
 if __name__ == "__main__":
     main()
