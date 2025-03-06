@@ -44,9 +44,14 @@ def main():
 
 
             print("Esperando resposta...")
-            timeout_5s(com1)
-
-            rxBuffer = com1.getData(16) #16 bytes pois o payload é de 1 byte (pra função datagrama não dar erro)
+            # Removido timeout_5s(com1)
+            
+            # Correção para aguardar resposta sem bloquear
+            while com1.rx.getBufferLen() < 1:
+                time.sleep(1)
+                
+            # Ler o que está disponível no buffer em vez de bloquear
+            rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
 
             if check_h0(rxBuffer,2): #check se o pacote é de handshake (2 pelo server)
                 print("Handshake confirmado!")
@@ -65,42 +70,54 @@ def main():
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
         bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
 
-        i = 1
+        # Correção: começar do índice 0 para enviar todos os pacotes
+        i = 0
         while i < len(bytes_partes):
-            data = datagrama(bytes_partes[i],i,3,0,0,numero_server)
+            # Número do pacote é i+1 (começa em 1, não em 0)
+            data = datagrama(bytes_partes[i], i+1, 3, 0, 0, numero_server)
             txBuffer = data
             com1.sendData(txBuffer)
 
             txSize = com1.tx.getStatus()
             print('enviou = {} bytes!' .format(txSize))
 
-            print("Pacote {} enviado!".format(i))
+            print("Pacote {} enviado!".format(i+1))  # Mostrar número do pacote iniciando em 1
             time.sleep(0.5)
 
-            timeout_5s(com1)
+            # Removido timeout_5s(com1)
+            
+            # Aguardar resposta sem bloquear
+            while com1.rx.getBufferLen() < 1:
+                time.sleep(1)
+                
+            # Ler o que está disponível
+            rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
 
-            rxBuffer = com1.getData(16) #16 da funcao, arrumar depois a logica juntos. mas vai funfar
-
-            if certo(rxBuffer,i):
-                print("Pacote {} confirmado!".format(i))
-                print("Iniciando envio do pŕoximo pacote...")
+            if certo(rxBuffer, i+1):  # Verificar pacote i+1
+                print("Pacote {} confirmado!".format(i+1))
+                print("Iniciando envio do próximo pacote...")
                 i += 1
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
                 clear_terminal()
 
             else:
-                print("Enviando o pacote {} novamente!".format(i))
+                print("Enviando o pacote {} novamente!".format(i+1))
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
                 clear_terminal()
         
         print("Confirmando que tudo foi enviado recebido no server corretamente!")
-        timeout_5s(com1)
-        rxBuffer = com1.rx.getData(16)
+        # Removido timeout_5s(com1)
+        
+        # Aguardar resposta final
+        while com1.rx.getBufferLen() < 1:
+            time.sleep(1)
+            
+        rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
 
-        if certo(rxBuffer,len(bytes_partes)):
-            print("Pacote {} confirmado!".format(i))
+        if certo(rxBuffer, len(bytes_partes)):
+            print("Pacote {} confirmado!".format(len(bytes_partes)))
             print("Imagem enviada com sucesso!")
             time.sleep(0.5)
             clear_terminal()
@@ -120,14 +137,7 @@ def main():
         print(erro)
         com1.disable()
 
-def timeout_5s(com1):
-    tempo_antes = time.time()
-    while tempo_antes - time.time() < 5:
-        if com1.rx.getBufferLen() == 16:
-            break
-        else:
-            print("Time out")
-            break
-        
+# Função de timeout removida
+
 if __name__ == "__main__":
     main()

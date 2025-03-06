@@ -3,154 +3,168 @@ import time
 import numpy as np
 from autolimpa import clear_terminal
 from recebe_datagrama import *
+from separa import separa
+from datagramas import datagrama
+from certo import check_h0, certo
 
-
-serialName = "/dev/ttyACM0"
+serialName = "/dev/ttyACM0"  # Importante: Ajuste para a porta correta no outro computador
 
 def main():
     try:
-        timeout = 5
-        handshake = False
-        machine_state = {
-            'one',
-            'two'
-        }
-        start_time = time.time()
         numero_servidor = 8
         print("Iniciou o main")
         com1 = enlace(serialName)
         com1.enable()
         com1.rx.clearBuffer()
 
-        print("esperando 1 byte de sacrifício")
-        com1.getData(1)
+        print("Esperando byte de sacrifício")
+        # Espera pelo byte de sacrifício (não bloqueante)
+        while com1.rx.getBufferLen() < 1:
+            time.sleep(0.1)
+            
+        sacrifice_byte, _ = com1.getData(1)
         com1.rx.clearBuffer()
+        print("Byte de sacrifício recebido")
         time.sleep(0.5)
 
         print("Abriu a comunicação!")
-        print("\n")
-        print("Recepção iniciada!")
-        print("\n")
-        print("Recebendo o pacote!")
+        print("Esperando handshake do cliente...")
 
-        #se isso é verdade, então necwssariamente é tipo 1
-
+        # Dados da imagem recebida
+        file_bytes = bytearray()
+        
+        # Aguarda handshake do cliente
+        handshake = False
         while not handshake:
-            if com1.rx.getBufferLen() >=15:
-                    head, nRx = com1.getData(12) #12 pq ele tem q ler o head primeiro
-                    EoP, len_EoP = com1.getData(3)
-                    h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
-                    if verifica_dadosEoP(EoP):
-                        if h5 == numero_servidor:
-                            #servidor oscioso.
-                            handshake = True
-                            head = altera_byte(head,2)
-                            pacote = head + EoP
-                            com1.sendData(pacote)
-                            contador = 1
-                            numpckt = h4
-                            total_pkct = h2
-                            tamanho_pl = h3
-
-        while numpckt < contador:
-            #significa que não está no ultimo pacote.
-            timer_reenvio = time.time()
-            timer_desistir = time.time()
-
-                #como verificar o payload ?
-            while com1.rx.getBufferLen() != tamanho_pl+15:
-                time.sleep(1.0)
-
-        
-                if timer_reenvio - time.time() > 0  :
-                    #envia o tipo 5
-                    break 
-
+            if com1.rx.getBufferLen() > 0:
+                # Lê o que está disponível
+                header, _ = com1.getData(12)  # Lê o cabeçalho
+                h0, h1, h2, h3, h4, h5, h6, h7, _, _, _, _ = interpreta_head(header)
+                
+                # Verifica se é mensagem de handshake (tipo 1)
+                if h0 == 1:
+                    # Lê o payload e o EOP
+                    payload_size = h3
+                    payload, _ = com1.getData(payload_size)
+                    eop, _ = com1.getData(3)
+                    
+                    # Verifica se é para este servidor e se o EOP está correto
+                    if h5 == numero_servidor and verifica_dadosEoP(eop):
+                        print("Handshake recebido")
+                        
+                        # Responde com handshake (tipo 2)
+                        resposta = datagrama(b'0', 0, 2, 0, 0, numero_servidor)
+                        com1.sendData(resposta)
+                        print("Handshake (tipo 2) enviado")
+                        
+                        handshake = True
+                        expected_packet = 1  # Começa esperando o pacote 1
+                        last_received = 0
+                        
+                        # Guarda informações do total de pacotes
+                        total_packets = h1
+                        print(f"Total de pacotes esperados: {total_packets}")
                 else:
-                    if timer_desistir - time.time() > 0:
-                        #tipo 4, mas onde fiz a verificação que está sendo falada ? 
-                        timer_reenvio = time.time()
-                        continue
-
-
-
-
-                # else:
-                a =0
-        
-        
-
-        
-
-
-        
-
-        else : 
-            print("Acabou!!")
-
-
-        
-
-
-            
-
-        
-
-
-
-
-
-
-    
-        h0,h1,_,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
-        #h0: tipo msg / h3: numero total de pckt arquivo/ h4: numero do pacote/ h5: handshake ou dado/ 
-        # h6: pckt solicitado recomeço/ h7:numero pcktultimo sucesso
-
-        if verifica_tipo(h0,h1) == 'Tipo1':
-           
-
-           
-            #como a mesnagem do itpo 1 não tem payload, ent tem que ter 3 de len
-            EoP = com1.getData(3)
-
-
-            #mandar sinal de ocioso:
-            com1.sendData(altera_byte(head,2))
-            n=1
-            time.sleep(.5)
-        
-        elif verifica_tipo(h0,h1) == 'Tipo3':
-            
-            n+=1
-            PayLoad = com1.getData(h3)
-            verifica = verifica_erro(h0,h5,h6,h7,PayLoad,n)
-            if  verifica =='Verificado':
-                total_pkct = h3
-                numero_pckt_recebido = h4 #Numero do pacote recebido de acordo com o client.
-                com1.sendData(altera_byte(head,4,h4))
+                    print(f"Recebido pacote tipo {h0}, esperava tipo 1")
+                    com1.rx.clearBuffer()
             else:
-                l_erros = verifica.split("\n")
-                for erro in l_erros:
-                    com1.sendData(erro.encode('utf-8'))
-
-        EoP = com1.rx.buffer
-        if verifica_dadosEoP(len(EoP))!= 'True':
-            com1.sendData(altera_byte(head,6,n))
-
-            
-
-        elif (time.time() - start_time) > timeout:
-            #time out 
-            com1.sendData(altera_byte(head,5))
-            print("\n")
-            print("\n")
-            print("Comunicação encerrada devido ao timeout.")
-            print("-------------------------")
-            com1.disable()       
-            
+                print("Aguardando handshake...")
+                time.sleep(0.1)
         
-        print("\n")
-        print("\n")
+        # Recepção de pacotes
+        print("Iniciando recepção de pacotes")
+        
+        while last_received < total_packets:
+            print(f"Esperando pacote {expected_packet}")
+            
+            # Espera até ter dados disponíveis
+            while com1.rx.getBufferLen() < 12:  # Pelo menos o header
+                time.sleep(0.1)
+                
+            # Lê o cabeçalho
+            header, _ = com1.getData(12)
+            h0, h1, h2, h3, h4, h5, h6, h7, _, _, _, _ = interpreta_head(header)
+            
+            # Verifica se é pacote de dados (tipo 3)
+            if h0 == 3:
+                payload_size = h3
+                packet_number = h4
+                
+                # Espera pelo payload e EOP
+                while com1.rx.getBufferLen() < payload_size + 3:
+                    time.sleep(0.1)
+                    
+                # Lê o payload e o EOP
+                payload, _ = com1.getData(payload_size)
+                eop, _ = com1.getData(3)
+                
+                # Verifica integridade
+                erro = False
+                mensagem_erro = ""
+                
+                # Verifica se é o pacote esperado
+                if packet_number != expected_packet:
+                    erro = True
+                    mensagem_erro += f"Erro na sequência. Esperado: {expected_packet}, Recebido: {packet_number}\n"
+                
+                # Verifica tamanho do payload
+                if len(payload) != payload_size:
+                    erro = True
+                    mensagem_erro += f"Erro no tamanho do payload. Esperado: {payload_size}, Recebido: {len(payload)}\n"
+                
+                # Verifica EOP
+                if not verifica_dadosEoP(eop):
+                    erro = True
+                    mensagem_erro += "EOP incorreto\n"
+                
+                # Processa conforme verificação
+                if erro:
+                    print(mensagem_erro)
+                    # Envia mensagem de erro (tipo 6)
+                    erro_resposta = datagrama(b'0', expected_packet, 6, expected_packet, last_received, numero_servidor)
+                    com1.sendData(erro_resposta)
+                    print(f"Enviando resposta de erro (tipo 6) solicitando pacote {expected_packet}")
+                else:
+                    # Adiciona ao arquivo
+                    file_bytes.extend(payload)
+                    
+                    # Atualiza contadores
+                    last_received = packet_number
+                    expected_packet = packet_number + 1
+                    
+                    # Responde com sucesso (tipo 4)
+                    sucesso_resposta = datagrama(b'0', packet_number, 4, 0, 1, numero_servidor)
+                    com1.sendData(sucesso_resposta)
+                    print(f"Pacote {packet_number} recebido com sucesso - Enviando resposta tipo 4")
+                
+            else:
+                # Se não for tipo 3, limpa o buffer e continua
+                print(f"Recebido pacote tipo {h0}, esperava tipo 3")
+                com1.rx.clearBuffer()
+        
+        # Todos os pacotes recebidos
+        print("Todos os pacotes recebidos com sucesso!")
+        
+        # Salvar o arquivo
+        try:
+            with open("img/imagecopy.png", "wb") as f:
+                f.write(file_bytes)
+            print("Imagem salva como img/imagecopy.png")
+        except:
+            # Cria pasta se não existir
+            import os
+            os.makedirs("img", exist_ok=True)
+            with open("img/imagecopy.png", "wb") as f:
+                f.write(file_bytes)
+            print("Imagem salva como img/imagecopy.png")
+        
+        # Envia confirmação final
+        final_resposta = datagrama(b'0', total_packets, 4, 0, 1, numero_servidor)
+        com1.sendData(final_resposta)
+        print("Enviada confirmação final")
+        
+        # Encerra comunicação
+        print("-------------------------")
         print("Comunicação encerrada")
         print("-------------------------")
         com1.disable()
@@ -158,6 +172,9 @@ def main():
     except Exception as erro:
         print("ops! :-\\")
         print(erro)
+        print("Erro completo:", erro.__class__, erro)
+        import traceback
+        traceback.print_exc()
         com1.disable()
 
 if __name__ == "__main__":
