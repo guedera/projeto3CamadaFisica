@@ -43,21 +43,35 @@ def main():
             time.sleep(0.5)
 
             print("Esperando resposta...")
-            # Aguarde até que haja pelo menos 16 bytes para ler
-            while com1.rx.getBufferLen() < 16:
+            # Adiciona timeout para o handshake
+            timeout = time.time() + 5  # 5 segundos de timeout
+            
+            # Aguarde até que haja pelo menos 15 bytes para ler (12 de head + 3 de EoP)
+            while com1.rx.getBufferLen() < 15:
+                print(com1.rx.getBufferLen())
                 time.sleep(0.1)
+                if time.time() > timeout:
+                    print("Timeout de handshake!")
+                    break
+            
+            # Se recebeu resposta    
+            if com1.rx.getBufferLen() >= 15:
+                head, _ = com1.getData(12)  # Obtém os 12 bytes do header
+                eop, _ = com1.getData(3)    # Obtém os 3 bytes do EoP
                 
-            rxBuffer, _ = com1.getData(16) #16 bytes pois o payload é de 1 byte (pra função datagrama não dar erro)
-
-            if check_h0(rxBuffer[0:12],2): #check se o pacote é de handshake (2 pelo server)
-                print("Handshake confirmado!")
-                comprimento = True #sai do loop do handshake
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
-                clear_terminal()
-
+                if check_h0(head,2) and eop == b'\xAA\xBB\xCC': #check se o pacote é de handshake (2 pelo server)
+                    print("Handshake confirmado!")
+                    comprimento = True #sai do loop do handshake
+                    com1.rx.clearBuffer()
+                    time.sleep(0.5)
+                    clear_terminal()
+                else:
+                    print("Handshake falhou! Resposta inválida.")
+                    time.sleep(0.5)
+                    com1.rx.clearBuffer()
+                    clear_terminal()
             else:
-                print("Handshake falhou!")
+                print("Não recebeu resposta do servidor. Tentando novamente...")
                 time.sleep(0.5)
                 com1.rx.clearBuffer()
                 clear_terminal()

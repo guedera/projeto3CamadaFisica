@@ -29,8 +29,9 @@ def main():
 
         # Aguardando handshake
         while not handshake:
-            if com1.rx.getBufferLen() >= 15:
+            if com1.rx.getBufferLen() >= 16:
                 head, nRx = com1.getData(12) # Ler o head primeiro
+                nada = com1.getData(1) # Ler o byte de nada
                 EoP, len_EoP = com1.getData(3)
                 h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
                 
@@ -51,7 +52,7 @@ def main():
 
         # Loop principal de recebimento de dados
         while True:
-            if com1.rx.getBufferLen() >= 15:
+            if com1.rx.getBufferLen() >= 16:
                 head, _ = com1.getData(12)  # Lê o cabeçalho
                 h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
                 
