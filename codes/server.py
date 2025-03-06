@@ -10,7 +10,7 @@ serialName = "/dev/ttyACM0"
 
 def main():
     try:
-        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/newimage.png"
+        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/imagemcopia.png"  # Changed filename to match requirement
         
         handshake = False
         numero_servidor = 8
@@ -21,6 +21,7 @@ def main():
 
         # Buffer para armazenar os bytes da imagem recebida
         image_buffer = bytearray()
+        total_pacotes = 0  # Inicializa total de pacotes
 
         print("esperando 1 byte de sacrifício")
         com1.getData(1)
@@ -51,9 +52,7 @@ def main():
                     print("Handshake confirmado. Aguardando dados...")
                     
                     # Prepara para receber dados
-                    contador = 1
                     n = 1  # Contador de pacotes esperados
-                    total_pacotes = 0  # Será atualizado com o valor real do primeiro pacote
                     
         # Loop principal de recebimento de dados
         while True:
@@ -65,10 +64,12 @@ def main():
                     payload, _ = com1.getData(h3)  # Lê o payload
                     EoP, _ = com1.getData(3)  # Lê o EoP
                     
-                    if h1 > 0 and total_pacotes == 0:
+                    # CORREÇÃO: Usar h1 para determinar o número total de pacotes
+                    if total_pacotes == 0:
                         total_pacotes = h1  # Atualiza o total de pacotes a receber
+                        print(f"Total de pacotes a receber: {total_pacotes}")
                     
-                    print(f"Recebido pacote {h4} de {h1} pacotes")
+                    print(f"Recebido pacote {h4} de {total_pacotes} pacotes")
                     
                     # Verifica se é o pacote esperado
                     if h4 == n:
@@ -95,18 +96,22 @@ def main():
                         
                         print(f"Pacote errado, esperava {n}, recebeu {h4}. Solicitando reenvio...")
                 
-                if h4 >= h1:  # Se recebeu o último pacote
+                # CORREÇÃO: Verifica se recebemos todos os pacotes esperados
+                if n > total_pacotes and total_pacotes > 0:  
                     print("Todos os pacotes recebidos. Comunicação finalizada.")
                     break
                     
             time.sleep(0.1)
 
-        f = open(imageW, 'wb')
-        f.write(image_buffer)
-
-        f.close()
-
+        # Garantir que o diretório existe
+        os.makedirs(os.path.dirname(imageW), exist_ok=True)
+        
         # Salva a imagem recebida
+        with open(imageW, 'wb') as f:
+            f.write(image_buffer)
+
+        print(f"\nImagem salva em {imageW}")
+        print(f"Tamanho da imagem: {len(image_buffer)} bytes")
         print("\n")
         print("Comunicação encerrada")
         print("-------------------------")
