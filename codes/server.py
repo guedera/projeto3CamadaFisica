@@ -1,174 +1,183 @@
 from enlace import *
 import time
+import numpy as np
 from autolimpa import clear_terminal
+from separa import separa
+from datagramas import datagrama
+from certo import check_h0, certo
 
-serialName = "/dev/ttyACM0"
 
-def parse_head(head_bytes):
-    """
-    Interpreta os 12 bytes do cabeçalho e retorna um dicionário com os campos.
-    Estrutura:
-      h0: Tipo da mensagem
-      h1, h2: (valores duplicados do tipo)
-      h3: Tamanho do payload
-      h4: Número do pacote
-      h5: Em handshake, representa o ID do servidor; em dados, pode ser o tamanho do payload
-      h6: Campo de erro
-      h7: Indicador de sucesso (por exemplo, 1 para confirmação)
-      h8, h9, h10, h11: Campos livres
-    """
-    if len(head_bytes) != 12:
-        raise ValueError("Cabeçalho inválido: tamanho diferente de 12 bytes.")
-    return {
-        "h0": head_bytes[0],
-        "h1": head_bytes[1],
-        "h2": head_bytes[2],
-        "h3": head_bytes[3],
-        "h4": head_bytes[4],
-        "h5": head_bytes[5],
-        "h6": head_bytes[6],
-        "h7": head_bytes[7],
-        "h8": head_bytes[8],
-        "h9": head_bytes[9],
-        "h10": head_bytes[10],
-        "h11": head_bytes[11],
-    }
-
-def check_eop(eop_bytes):
-    """Verifica se os 3 bytes do EoP correspondem a b'\xAA\xBB\xCC'."""
-    return eop_bytes == b'\xAA\xBB\xCC'
-
-def build_datagram(payload: bytes, n_pacote: int, tipo: int, erro: int, sucesso: int, id: int) -> bytes:
-    """
-    Constrói o datagrama conforme especificado:
-      - HEAD: 12 bytes
-      - PAYLOAD: tamanho variável
-      - EoP: 3 bytes fixos (b'\xAA\xBB\xCC')
-      
-    Para os tipos 1, 2, 4, 5 e 6, h5 recebe o valor do ID.
-    Para o tipo 3 (dados), h5 recebe o tamanho do payload.
-    """
-    h0 = tipo.to_bytes(1, 'big')
-    h1 = tipo.to_bytes(1, 'big')
-    h2 = tipo.to_bytes(1, 'big')
-    h3 = len(payload).to_bytes(1, 'big')
-    h4 = n_pacote.to_bytes(1, 'big')
-    if tipo in [1, 2, 4, 5, 6]:
-        h5 = id.to_bytes(1, 'big')
-    elif tipo == 3:
-        h5 = len(payload).to_bytes(1, 'big')
-    else:
-        h5 = (0).to_bytes(1, 'big')
-    h6 = erro.to_bytes(1, 'big')
-    h7 = sucesso.to_bytes(1, 'big')
-    h8 = b'0'
-    h9 = b'0'
-    h10 = b'0'
-    h11 = b'0'
-    EoP = b'\xAA\xBB\xCC'
-    return h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8 + h9 + h10 + h11 + payload + EoP
+serialName = "/dev/ttyACM1"
 
 def main():
     try:
-        server_id = 8
-        timeout_duration = 5  # segundos para considerar fim da transmissão
-        print("Servidor iniciado!")
+        print("Iniciou o main")
         com1 = enlace(serialName)
         com1.enable()
-        com1.rx.clearBuffer()
-
-        # Sincronização: aguarda o byte de sacrifício
+        
+        # Wait for handshake from client
         print("Esperando byte de sacrifício...")
-        com1.getData(1)
-        com1.rx.clearBuffer()
+        rxBuffer, nRx = com1.getData(1)
         time.sleep(0.5)
-
-        # Handshake: aguarda pacote de handshake do cliente (16 bytes)
-        print("Aguardando handshake do cliente...")
-        handshake_received = False
-        while not handshake_received:
-            if com1.rx.getBufferLen() >= 16:
-                head_bytes, _ = com1.getData(12)
-                payload, _    = com1.getData(1)
-                eop, _        = com1.getData(3)
+        com1.rx.clearBuffer()
+        
+        print("-------------------------")
+        print("Esperando handshake do client...")
+        print("-------------------------")
+        
+        # File to save received data
+        file_bytes = bytearray()
+        
+        # Handshake stage
+        handshake_confirmed = False
+        while handshake_confirmed == False:
+            timeout_5s(com1)
+            
+            if com1.rx.getBufferLen() > 0:
+                rxBuffer, nRx = com1.getData(16) # Header + small payload + EOP
                 
-                if not check_eop(eop):
-                    print("Handshake recebido com EoP inválido. Ignorando pacote...")
-                    continue
-
-                head = parse_head(head_bytes)
-                # Verifica se é handshake (tipo 1) e se h5 equivale ao ID do servidor
-                if head["h0"] == 1 and head["h5"] == server_id:
-                    print("Handshake recebido corretamente!")
-                    response = build_datagram(payload, 1, 2, 0, 0, server_id)
-                    print(response)
-                    com1.sendData(response)
-                    handshake_received = True
+                if check_h0(rxBuffer, 1):  # Check if it's handshake from client
+                    print("Handshake recebido!")
+                    
+                    # Check server ID from client request
+                    server_id = rxBuffer[5]
+                    print(f"ID do servidor recebido: {server_id}")
+                    
+                    # Respond with handshake (type 2)
+                    handshake_response = datagrama(b'0', 0, 2, 0, 1, server_id)
+                    com1.sendData(handshake_response)
+                    print("Enviando resposta de handshake (tipo 2)")
+                    
+                    handshake_confirmed = True
+                    time.sleep(0.5)
+                    clear_terminal()
                 else:
-                    print("Pacote de handshake inválido ou não destinado a este servidor.")
+                    print(f"Recebido pacote tipo {rxBuffer[0]} ao invés de handshake")
+                    com1.rx.clearBuffer()
             else:
-                time.sleep(0.1)
-
-        # Recepção dos pacotes de dados
-        print("Iniciando recepção dos pacotes de dados...")
+                print("Nenhum dado recebido, esperando...")
+                time.sleep(0.5)
+        
+        # Data reception stage
         expected_packet = 1
-        file_buffer = b''
-        last_packet_time = time.time()
+        last_received = 0
+        total_packets = 0
         
+        # Start receiving packets
         while True:
-            if com1.rx.getBufferLen() >= 12:
-                head_bytes, _ = com1.getData(12)
-                head = parse_head(head_bytes)
+            print(f"Esperando pacote {expected_packet}...")
+            
+            # Wait for data with timeout
+            timeout = not timeout_5s(com1)
+            
+            if timeout:
+                print("Timeout! Nenhum dado recebido em 5 segundos.")
+                # Send timeout message (type 5)
+                timeout_message = datagrama(b'0', 0, 5, 0, 0, server_id)
+                com1.sendData(timeout_message)
+                break
+            
+            # Get header
+            rxBuffer, nRx = com1.getData(15)
+            
+            # Check if it's data packet (type 3)
+            if check_h0(rxBuffer, 3):
+                # Extract information from header
+                packet_number = rxBuffer[4]  # h4: packet number
+                payload_size = rxBuffer[3]   # h3: payload size
                 
-                # Se não for pacote de dados (tipo 3), descarta-o
-                if head["h0"] != 3:
-                    print(f"Pacote com tipo {head['h0']} recebido; esperado tipo 3. Descartando...")
-                    payload_len = head["h3"]
-                    _ = com1.getData(payload_len)
-                    _ = com1.getData(3)
-                    continue
-
-                payload_len = head["h3"]
-                packet_number = head["h4"]
-
-                payload, _ = com1.getData(payload_len)
-                eop, _ = com1.getData(3)
+                # Get payload and EOP
+                payload = rxBuffer[12:-3]  # Payload starts after header
+                eop = rxBuffer[-3:]        # Last 3 bytes should be EOP
                 
-                if not check_eop(eop):
-                    print(f"Pacote {packet_number}: EoP inválido. Solicitando reenvio.")
-                    error_packet = build_datagram(b'', expected_packet, 6, 0, 0, 0)
-                    com1.sendData(error_packet)
-                    continue
+                print(f"Pacote {packet_number} recebido. Tamanho do payload: {len(payload)}")
                 
+                # Verify packet integrity
+                error = False
+                error_message = ""
+                
+                # Check packet sequence
                 if packet_number != expected_packet:
-                    print(f"Pacote fora de ordem: esperado {expected_packet}, recebido {packet_number}. Solicitando reenvio.")
-                    error_packet = build_datagram(b'', expected_packet, 6, 0, 0, 0)
-                    com1.sendData(error_packet)
-                    continue
+                    error = True
+                    error_message += f"Erro na sequência. Esperado: {expected_packet}, Recebido: {packet_number}\n"
                 
-                file_buffer += payload
-                print(f"Pacote {packet_number} recebido com sucesso.")
-                confirmation = build_datagram(b'', packet_number, 4, 0, 1, 0)
-                com1.sendData(confirmation)
-                expected_packet += 1
-                last_packet_time = time.time()
+                # Check payload size
+                if len(payload) != payload_size:
+                    error = True
+                    error_message += f"Erro no tamanho do payload. Esperado: {payload_size}, Recebido: {len(payload)}\n"
+                
+                # Check EOP
+                if eop != b'\xAA\xBB\xCC':
+                    error = True
+                    error_message += "EOP incorreto!\n"
+                
+                # Handle errors or success
+                if error:
+                    print(error_message)
+                    # Send error message (type 6)
+                    error_response = datagrama(b'0', expected_packet, 6, expected_packet, last_received, server_id)
+                    com1.sendData(error_response)
+                    print(f"Enviando resposta de erro (tipo 6) solicitando pacote {expected_packet}")
+                else:
+                    # Add payload to file data
+                    file_bytes.extend(payload)
+                    
+                    # Update counters
+                    last_received = packet_number
+                    expected_packet = packet_number + 1
+                    
+                    # Get total packets if this is first packet
+                    if packet_number == 1:
+                        total_packets = rxBuffer[1]  # h1: total packets
+                        print(f"Total de pacotes: {total_packets}")
+                    
+                    # Send success message (type 4)
+                    success_response = datagrama(b'0', packet_number, 4, 0, 1, server_id)
+                    com1.sendData(success_response)
+                    print(f"Enviando confirmação (tipo 4) para pacote {packet_number}")
+                    
+                    # Check if this was the last packet
+                    if packet_number == total_packets:
+                        print("Último pacote recebido!")
+                        break
             else:
-                if time.time() - last_packet_time > timeout_duration:
-                    print("Timeout na recepção. Encerrando transferência.")
-                    break
-                time.sleep(0.1)
+                print(f"Recebido pacote tipo {rxBuffer[0]} ao invés de dados")
+            
+            # Clear buffer for next packet
+            com1.rx.clearBuffer()
+            time.sleep(0.5)
+            clear_terminal()
         
-        # Salva o arquivo recebido
-        with open("imagem_recebida.png", "wb") as f:
-            f.write(file_buffer)
-        print("Arquivo recebido e salvo como 'imagem_recebida.png'.")
+        # Save received file
+        if last_received == total_packets:
+            print("Todos os pacotes recebidos com sucesso!")
+            # Salva a imagem como "imagecopy.png" na mesma pasta do original
+            with open("img/imagecopy.png", "wb") as file:
+                file.write(file_bytes)
+            print("Imagem salva como 'img/imagecopy.png'")
+            
+            # Send final confirmation
+            final_response = datagrama(b'0', total_packets, 4, 0, 1, server_id)
+            com1.sendData(final_response)
         
+        # End communication
+        print("-------------------------")
+        print("Comunicação encerrada")
+        print("-------------------------")
         com1.disable()
         
-    except Exception as e:
-        print("Erro:", e)
+    except Exception as erro:
+        print("ops! :-\\")
+        print(erro)
         com1.disable()
+
+def timeout_5s(com1):
+    tempo_inicio = time.time()
+    while time.time() - tempo_inicio < 5:
+        if com1.rx.getBufferLen() > 0:
+            return True
+        time.sleep(0.1)
+    return False
 
 if __name__ == "__main__":
-    clear_terminal()
     main()
