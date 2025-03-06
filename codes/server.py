@@ -6,11 +6,11 @@ from recebe_datagrama import *
 import os
 
 
-serialName = "/dev/ttyACM0"
+serialName = "/dev/ttyACM1"
 
 def main():
     try:
-        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/imagemcopia.png"  # Changed filename to match requirement
+        imageW = "/home/guedera/Documents/Aulas/Camadas/projeto3CamadaFisica/codes/img/imagemcopia.png"  # Changed filename to match requirement
         
         handshake = False
         numero_servidor = 8
@@ -34,8 +34,14 @@ def main():
         print("\n")
         print("Recebendo o pacote!")
 
-        # Aguardando handshake
-        while not handshake:
+        # Configuração de timeout
+        timeout_handshake = 20  # 20 segundos para handshake
+        timeout_dados = 10      # 10 segundos para receber dados
+        
+        # Aguardando handshake com timeout
+        start_handshake_time = time.time()
+        
+        while not handshake and (time.time() - start_handshake_time) < timeout_handshake:
             if com1.rx.getBufferLen() >= 16:
                 head, nRx = com1.getData(12) # Ler o head primeiro
                 nada = com1.getData(1) # Ler o byte de nada
@@ -53,12 +59,36 @@ def main():
                     
                     # Prepara para receber dados
                     n = 1  # Contador de pacotes esperados
+            
+            # Evita consumo excessivo de CPU
+            time.sleep(0.1)
                     
-        # Loop principal de recebimento de dados
+        # Se não recebeu handshake no período definido, encerra o programa
+        if not handshake:
+            print(f"Timeout de handshake após {timeout_handshake} segundos. Encerrando o programa.")
+            com1.disable()
+            return
+        
+        # Loop principal de recebimento de dados com timeout
+        last_packet_time = time.time()
+        
         while True:
+            # Verifica se houve timeout na comunicação
+            if (time.time() - last_packet_time) > timeout_dados:
+                print(f"Timeout após {timeout_dados} segundos sem receber dados. Encerrando o programa.")
+                break
+                
             if com1.rx.getBufferLen() >= 16:
+                # Atualiza o tempo do último pacote recebido
+                last_packet_time = time.time()
+                
                 head, _ = com1.getData(12)  # Lê o cabeçalho
                 h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
+                
+                # Verifica se recebeu um pacote de timeout do cliente
+                if h0 == 5:  # Tipo de pacote = timeout
+                    print(f"Cliente reportou timeout para pacote {h4}. Finalizando comunicação.")
+                    break
                 
                 if h0 == 3:  # Se for pacote de dados
                     payload, _ = com1.getData(h5)  # Lê o payload (tamanho está em h5 agora)
@@ -103,16 +133,21 @@ def main():
                     
             time.sleep(0.1)
 
-        # Garantir que o diretório existe
-        os.makedirs(os.path.dirname(imageW), exist_ok=True)
-        
-        # Salva a imagem recebida
-        with open(imageW, 'wb') as f:
-            f.write(image_buffer)
+        # Verifica se recebeu pelo menos alguns pacotes antes de salvar
+        if len(image_buffer) > 0:
+            # Garantir que o diretório existe
+            os.makedirs(os.path.dirname(imageW), exist_ok=True)
+            
+            # Salva a imagem recebida
+            with open(imageW, 'wb') as f:
+                f.write(image_buffer)
 
-        print(f"\nImagem salva em {imageW}")
-        print(f"Tamanho da imagem: {len(image_buffer)} bytes")
-        print("\n")
+            print(f"\nImagem salva em {imageW}")
+            print(f"Tamanho da imagem: {len(image_buffer)} bytes")
+            print("\n")
+        else:
+            print("Nenhum dado ou dados insuficientes foram recebidos para salvar a imagem.")
+            
         print("Comunicação encerrada")
         print("-------------------------")
         com1.disable()

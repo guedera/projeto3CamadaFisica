@@ -86,27 +86,61 @@ def main():
             print('enviou = {} bytes!' .format(txSize))
 
             print("Pacote {} enviado!".format(i))
-            time.sleep(0.5)
-
-            # Aguarde até que haja pelo menos 16 bytes para ler
-            while com1.rx.getBufferLen() < 15:
-                time.sleep(0.1)
-
-            rxBuffer, _ = com1.getData(15)
-
-            if certo(rxBuffer,i):
-                print("Pacote {} confirmado!".format(i))
-                print("Iniciando envio do pŕoximo pacote...")
-                i += 1
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
-                # clear_terminal()
-
-            else:
-                print("Enviando o pacote {} novamente!".format(i))
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
-                # clear_terminal()
+            
+            # Implementação do timeout
+            timeout = 5  # 5 segundos de timeout
+            max_retries = 3  # Máximo de 3 tentativas
+            retries = 0
+            response_received = False
+            
+            while retries < max_retries and not response_received:
+                # Registra o tempo de início
+                start_time = time.time()
+                
+                # Aguarde até que haja pelo menos 15 bytes para ler ou timeout
+                while com1.rx.getBufferLen() < 15 and (time.time() - start_time) < timeout:
+                    time.sleep(0.1)
+                
+                # Se conseguiu dados suficientes
+                if com1.rx.getBufferLen() >= 15:
+                    rxBuffer, _ = com1.getData(15)
+                    
+                    if certo(rxBuffer, i):
+                        print("Pacote {} confirmado!".format(i))
+                        print("Iniciando envio do próximo pacote...")
+                        i += 1
+                        com1.rx.clearBuffer()
+                        time.sleep(0.5)
+                        response_received = True
+                    else:
+                        print("Resposta incorreta recebida. Enviando o pacote {} novamente!".format(i))
+                        retries += 1
+                        com1.rx.clearBuffer()
+                        com1.sendData(txBuffer)
+                        print("Retentativa {} de {}".format(retries, max_retries))
+                        time.sleep(0.5)
+                else:
+                    # Timeout ocorreu
+                    print("Timeout! Nenhuma resposta recebida. Enviando o pacote {} novamente!".format(i))
+                    retries += 1
+                    com1.rx.clearBuffer()
+                    
+                    if retries < max_retries:
+                        com1.sendData(txBuffer)
+                        print("Retentativa {} de {}".format(retries, max_retries))
+                    else:
+                        # Enviar pacote de timeout (tipo 5)
+                        timeout_packet = datagrama(b'', i, 5, 0, 0, numero_server, len(bytes_partes))
+                        com1.sendData(timeout_packet)
+                        print("Máximo de retentativas atingido. Enviando pacote de notificação de timeout.")
+                        time.sleep(1)
+                    
+                    time.sleep(0.5)
+            
+            # Se todas as tentativas falharam
+            if not response_received:
+                print("Falha no envio do pacote {}. Encerrando transmissão.".format(i))
+                break
         
         print("Confirmando que tudo foi enviado recebido no server corretamente!")
         # Aguarde até que haja pelo menos 16 bytes para ler
