@@ -25,11 +25,14 @@ def main():
 
         #Handshake
         comprimento = False
-        while comprimento == False:
+        handshake_max_retries = 3  # Máximo de 3 tentativas para o handshake
+        handshake_timeout = 5  # Timeout de 5 segundos para cada tentativa
+        
+        for attempt in range(handshake_max_retries):
             com1.rx.clearBuffer()
 
             print("-------------------------")
-            print("Tentando Handshake")
+            print(f"Tentando Handshake (Tentativa {attempt+1} de {handshake_max_retries})")
             print("-------------------------")
 
             load_hs = b'0'
@@ -44,33 +47,40 @@ def main():
 
             print("Esperando resposta...")
             
-            # Aguarde até que haja pelo menos 15 bytes para ler (12 de head + 3 de EoP)
-            while com1.rx.getBufferLen() < 15:
-                print(com1.rx.getBufferLen())
+            # Registra o tempo de início para controle do timeout
+            start_handshake_time = time.time()
+            
+            # Loop que aguarda resposta com timeout, similar ao do servidor
+            while not comprimento and (time.time() - start_handshake_time) < handshake_timeout:
+                if com1.rx.getBufferLen() >= 15:
+                    head, _ = com1.getData(12)  # Obtém os 12 bytes do header
+                    eop, _ = com1.getData(3)    # Obtém os 3 bytes do EoP
+                    
+                    if check_h0(head, 2) and eop == b'\xAA\xBB\xCC': #check se o pacote é de handshake (2 pelo server)
+                        print("Handshake confirmado!")
+                        comprimento = True  # sai do loop do handshake
+                        com1.rx.clearBuffer()
+                        # clear_terminal()
+                    else:
+                        print("Handshake falhou! Resposta inválida.")
+                        com1.rx.clearBuffer()
+                
+                # Evita consumo excessivo de CPU
                 time.sleep(0.1)
             
-            # Se recebeu resposta    
-            if com1.rx.getBufferLen() >= 15:
-                head, _ = com1.getData(12)  # Obtém os 12 bytes do header
-                eop, _ = com1.getData(3)    # Obtém os 3 bytes do EoP
+            # Se o handshake foi bem-sucedido, sai do loop de tentativas
+            if comprimento:
+                break
                 
-                if check_h0(head,2) and eop == b'\xAA\xBB\xCC': #check se o pacote é de handshake (2 pelo server)
-                    print("Handshake confirmado!")
-                    comprimento = True #sai do loop do handshake
-                    com1.rx.clearBuffer()
-                    time.sleep(0.5)
-                    # clear_terminal()
-                else:
-                    print("Handshake falhou! Resposta inválida.")
-                    time.sleep(0.5)
-                    com1.rx.clearBuffer()
-                    # clear_terminal()
-            else:
-                print("Não recebeu resposta do servidor. Tentando novamente...")
-                time.sleep(0.5)
-                com1.rx.clearBuffer()
-                # clear_terminal()
+            print(f"Timeout! Não recebeu resposta do servidor após {handshake_timeout} segundos.")
 
+        # Verifica se o handshake foi bem-sucedido após as tentativas
+        if not comprimento:
+            print("Falha no handshake após 3 tentativas. Encerrando o programa.")
+            com1.disable()
+            return  # Encerra a função main
+            
+        # O resto do código permanece o mesmo para o envio da imagem
         imageR = "/home/guedera/Documents/Aulas/Camadas/projeto3CamadaFisica/codes/img/image.png"
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
         bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
