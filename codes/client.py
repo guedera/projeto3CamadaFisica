@@ -25,47 +25,65 @@ def main():
 
         #Handshake
         comprimento = False
-        while comprimento == False:
+        timeout_count = 0
+        max_attempts = 5
+        
+        while comprimento == False and timeout_count < max_attempts:
             com1.rx.clearBuffer()
 
             print("-------------------------")
-            print("Tentando Handshake")
+            print("Tentando Handshake (tentativa {})".format(timeout_count + 1))
             print("-------------------------")
 
             load_hs = b'0'
-            # Modificando para passar o número do servidor como bytes em vez de int
+            # Enviar h1 como número total de pacotes no handshake
+            bytes_imagem = open("codes/img/image.png", 'rb').read()
+            bytes_partes = separa(bytes_imagem)
+            total_pacotes = len(bytes_partes)
+            
             txBuffer = datagrama(load_hs, 1, 1, 0, 0, numero_server.to_bytes(1, 'big')) 
+            # Ajuste: primeiro byte é tipo (1), h1 deve ser total de pacotes
+            txBuffer = bytearray(txBuffer)
+            txBuffer[1] = total_pacotes  # Define h1 como total de pacotes
+            txBuffer = bytes(txBuffer)
 
             com1.sendData(txBuffer)
             print("Pacote de handshake enviado!")
 
             txSize = com1.tx.getStatus()
             print('enviou = {} bytes!' .format(txSize))
-            time.sleep(0.5)
 
-
-            print("Esperando resposta...")
-            # Removido timeout_5s(com1)
+            print("Esperando resposta... (timeout em 5s)")
             
-            # Correção para aguardar resposta sem bloquear
-            while com1.rx.getBufferLen() < 1:
-                time.sleep(1)
+            # Implementação de timeout
+            start_time = time.time()
+            timeout = 5  # 5 segundos de timeout
+            
+            got_response = False
+            
+            while (time.time() - start_time < timeout) and not got_response:
+                if com1.rx.getBufferLen() > 0:
+                    rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+                    got_response = True
+                time.sleep(0.1)
                 
-            # Ler o que está disponível no buffer em vez de bloquear
-            rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
-
-            if check_h0(rxBuffer,2): #check se o pacote é de handshake (2 pelo server)
+            if got_response and check_h0(rxBuffer, 2):  # check se o pacote é de handshake (2 pelo server)
                 print("Handshake confirmado!")
-                comprimento = True #sai do loop do handshake
+                comprimento = True  # sai do loop do handshake
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
                 clear_terminal()
-
             else:
-                print("Handshake falhou!")
-                time.sleep(0.5)
+                print("Handshake falhou ou timeout! Tentando novamente...")
+                timeout_count += 1
+                time.sleep(1)
                 com1.rx.clearBuffer()
                 clear_terminal()
+        
+        if timeout_count >= max_attempts:
+            print("Número máximo de tentativas de handshake excedido. Encerrando...")
+            com1.disable()
+            return
 
         imageR = "codes/img/image.png"
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
