@@ -143,22 +143,30 @@ def main():
                 break
         
         print("Confirmando que tudo foi enviado recebido no server corretamente!")
-        # Aguarde até que haja pelo menos 16 bytes para ler
-        while com1.rx.getBufferLen() < 15:
+        
+        # Implementa timeout para a confirmação final
+        final_timeout = 5  # 5 segundos para timeout final
+        start_final_time = time.time()
+        final_confirmation = False
+        
+        # Aguarde até que haja pelo menos 15 bytes para ler OU até timeout
+        while com1.rx.getBufferLen() < 15 and (time.time() - start_final_time) < final_timeout:
             time.sleep(0.1)
+        
+        # Verifica se recebeu dados ou se houve timeout
+        if com1.rx.getBufferLen() >= 15:
+            rxBuffer, _ = com1.getData(15)
             
-        rxBuffer, _ = com1.getData(15)
-
-        if certo(rxBuffer,len(bytes_partes)):
-            print("Pacote {} confirmado!".format(i))
-            print("Imagem enviada com sucesso!")
-            time.sleep(0.5)
-            # clear_terminal()
-
+            if certo(rxBuffer, len(bytes_partes)):
+                print("Confirmação final recebida! Pacote {} confirmado!".format(len(bytes_partes)))
+                print("Imagem enviada com sucesso!")
+            else:
+                print("Erro na confirmação final do pacote!")
         else:
-            print("Erro na transmissão do pacote!")
-            time.sleep(0.5)
-            # clear_terminal()
+            print("Timeout na confirmação final! Sem resposta do servidor.")
+            
+        time.sleep(0.5)
+        # clear_terminal()
         
         print("-------------------------")
         print("Comunicação encerrada")

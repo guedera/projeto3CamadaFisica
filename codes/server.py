@@ -128,7 +128,16 @@ def main():
                 
                 # CORREÇÃO: Verifica se recebemos todos os pacotes esperados
                 if n > total_pacotes and total_pacotes > 0:  
-                    print("Todos os pacotes recebidos. Comunicação finalizada.")
+                    print("Todos os pacotes recebidos. Enviando confirmação final...")
+                    time.sleep(2)
+                    # Envia confirmação final após receber todos os pacotes
+                    head_bytes = bytearray(head)
+                    head_bytes[0] = 4  # Tipo de confirmação positiva
+                    head_bytes[4] = total_pacotes  # Número do último pacote (total)
+                    head_bytes[7] = 1  # Sucesso = verdadeiro
+                    pacote = bytes(head_bytes) + EoP
+                    com1.sendData(pacote)
+                    print("Confirmação final enviada.")
                     break
                     
             time.sleep(0.1)
