@@ -7,9 +7,11 @@ def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int) -
     h3 = len(bytes_entrada).to_bytes(1, 'big')
     h4 = n_pacote.to_bytes(1, 'big')
     if tipo == 1: #handshake
-        h5 = id #mudar
-    if tipo == 3:
+        h5 = id.to_bytes(1, 'big') #Convert integer id to bytes
+    elif tipo == 3:
         h5 = len(bytes_entrada).to_bytes(1, 'big') #mudar
+    else:
+        h5 = b'\x00'  # Default value for other types
 
     h6 = erro.to_bytes(1, 'big') #mudar
     h7 = sucesso.to_bytes(1, 'big') #mudar
