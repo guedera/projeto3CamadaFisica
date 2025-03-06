@@ -1,15 +1,20 @@
 from separa import separa
 
-def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int) -> list:
+def datagrama(bytes_entrada, n_pacote:int, tipo:int, erro:int, sucesso:int, id) -> list:
     h0 = tipo.to_bytes(1, 'big') #handhsake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
     h1 = tipo.to_bytes(1, 'big')
     h2 = tipo.to_bytes(1, 'big')
     h3 = len(bytes_entrada).to_bytes(1, 'big')
     h4 = n_pacote.to_bytes(1, 'big')
     if tipo == 1: #handshake
-        h5 = id #mudar
-    if tipo == 3:
-        h5 = len(bytes_entrada).to_bytes(1, 'big') #mudar
+        # Verifica se id já é bytes, caso contrário converte
+        h5 = id if isinstance(id, bytes) else id.to_bytes(1, 'big')
+    else:
+        if tipo == 3:
+            h5 = len(bytes_entrada).to_bytes(1, 'big') #mudar
+        else:
+            # Para outros tipos, usa o id como está ou converte para bytes
+            h5 = id if isinstance(id, bytes) else id.to_bytes(1, 'big')
 
     h6 = erro.to_bytes(1, 'big') #mudar
     h7 = sucesso.to_bytes(1, 'big') #mudar

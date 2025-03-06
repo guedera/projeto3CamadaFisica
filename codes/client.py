@@ -33,7 +33,8 @@ def main():
             print("-------------------------")
 
             load_hs = b'0'
-            txBuffer = datagrama(load_hs,1,1,0,0,numero_server) #handshake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
+            # Modificando para passar o número do servidor como bytes em vez de int
+            txBuffer = datagrama(load_hs, 1, 1, 0, 0, numero_server.to_bytes(1, 'big')) 
 
             com1.sendData(txBuffer)
             print("Pacote de handshake enviado!")
