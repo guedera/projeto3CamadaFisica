@@ -71,11 +71,12 @@ def main():
                 com1.rx.clearBuffer()
                 # clear_terminal()
 
-        imageR = "codes/img/image.png"
+        imageR = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/image.png"
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
         bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
 
         i = 1
+        print(len(bytes_partes))
         while i < len(bytes_partes):
             data = datagrama(bytes_partes[i],i,3,0,0,numero_server)
             txBuffer = data

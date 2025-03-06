@@ -10,7 +10,7 @@ serialName = "/dev/ttyACM0"
 
 def main():
     try:
-        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/image.png"
+        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/newimage.png"
         
         handshake = False
         numero_servidor = 8
