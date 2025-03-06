@@ -1,13 +1,14 @@
 from enlace import *
 import time
 import numpy as np
+import os
 from autolimpa import clear_terminal
 from separa import separa
 from datagramas import datagrama
 from certo import check_h0, certo
 
 
-serialName = "/dev/ttyACM1"
+serialName = "/dev/ttyACM0"
 
 def main():
     try:
@@ -151,8 +152,14 @@ def main():
         # Save received file
         if last_received == total_packets:
             print("Todos os pacotes recebidos com sucesso!")
-            # Salva a imagem como "imagecopy.png" na mesma pasta do original
-            with open("img/imagecopy.png", "wb") as file:
+            
+            # Certifica-se que o diretório img existe antes de salvar
+            img_dir = "img"
+            if not os.path.exists(img_dir):
+                os.makedirs(img_dir)
+                
+            # Salva a imagem como "imagecopy.png" na pasta img
+            with open(os.path.join(img_dir, "imagecopy.png"), "wb") as file:
                 file.write(file_bytes)
             print("Imagem salva como 'img/imagecopy.png'")
             
