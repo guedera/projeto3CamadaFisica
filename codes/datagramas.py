@@ -1,10 +1,10 @@
 from separa import separa
 
-def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int) -> list:
+def datagrama(bytes_entrada,n_pacote:int,tipo:int,erro:int,sucesso:int,id:int, pacotes:int) -> list:
     h0 = tipo.to_bytes(1, 'big') #handhsake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
     h1 = tipo.to_bytes(1, 'big')
     h2 = tipo.to_bytes(1, 'big')
-    h3 = len(bytes_entrada).to_bytes(1, 'big')
+    h3 = pacotes.to_bytes(1, 'big')
     h4 = n_pacote.to_bytes(1, 'big')
     h5 = b'\x00'
     if tipo == 1: #handshake

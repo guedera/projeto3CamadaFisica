@@ -59,6 +59,7 @@ def main():
             if com1.rx.getBufferLen() >= 16:
                 head, _ = com1.getData(12)  # Lê o cabeçalho
                 h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
+                print (h3)
                 
                 if h0 == 3:  # Se for pacote de dados
                     payload, _ = com1.getData(h3)  # Lê o payload

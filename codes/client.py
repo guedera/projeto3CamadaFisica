@@ -33,7 +33,7 @@ def main():
             print("-------------------------")
 
             load_hs = b'0'
-            txBuffer = datagrama(load_hs,1,1,0,0,numero_server) #handshake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
+            txBuffer = datagrama(load_hs,1,1,0,0,numero_server,0) #handshake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
 
             com1.sendData(txBuffer)
             print("Pacote de handshake enviado!")
@@ -78,7 +78,7 @@ def main():
         i = 1
         print(len(bytes_partes))
         while i < len(bytes_partes):
-            data = datagrama(bytes_partes[i],i,3,0,0,numero_server)
+            data = datagrama(bytes_partes[i],i,3,0,0,numero_server,len(bytes_partes))
             txBuffer = data
             com1.sendData(txBuffer)
 
