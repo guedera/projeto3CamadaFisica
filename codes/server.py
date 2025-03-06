@@ -10,6 +10,8 @@ serialName = "/dev/ttyACM0"
 
 def main():
     try:
+        imageW = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/image.png"
+        
         handshake = False
         numero_servidor = 8
         print("Iniciou o main")
@@ -98,19 +100,13 @@ def main():
                     break
                     
             time.sleep(0.1)
-        
+
+        f = open(imageW, 'wb')
+        f.write(image_buffer)
+
+        f.close()
+
         # Salva a imagem recebida
-        img_path = '/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img'
-        
-        # Garante que o diretório existe
-        os.makedirs(img_path, exist_ok=True)
-        
-        # Salva o buffer como uma imagem
-        with open(f'{img_path}/imagemcopia.png', 'wb') as img_file:
-            img_file.write(image_buffer)
-            
-        print(f"\nImagem salva em {img_path}/imagemcopia.png")
-        print(f"Tamanho da imagem: {len(image_buffer)} bytes")
         print("\n")
         print("Comunicação encerrada")
         print("-------------------------")
