@@ -6,7 +6,7 @@ from separa import separa
 from datagramas import datagrama
 from certo import check_h0, certo
 
-serialName = "/dev/ttyACM1"
+serialName = "/dev/ttyACM0"  # Ajuste para a porta correta no seu computador
 
 def main():
     try:
@@ -25,16 +25,26 @@ def main():
 
         #Handshake
         comprimento = False
-        while comprimento == False:
+        tentativas = 0
+        max_tentativas = 3  # Número máximo de tentativas
+        
+        while comprimento == False and tentativas < max_tentativas:
             com1.rx.clearBuffer()
+            tentativas += 1
 
             print("-------------------------")
-            print("Tentando Handshake")
+            print(f"Tentando Handshake ({tentativas}/{max_tentativas})")
             print("-------------------------")
 
             load_hs = b'0'
-            txBuffer = datagrama(load_hs,1,1,0,0,numero_server) #handshake client = 1, handshake server = 2, dados = 3, eop certo = 4, timeou = 5, erro = 6
-
+            # Informar o total de pacotes já no handshake
+            imageR = "codes/img/image.png"
+            bytes_imagem = open(imageR, 'rb').read()
+            bytes_partes = separa(bytes_imagem)
+            total_pacotes = len(bytes_partes)
+            
+            # Handshake com total de pacotes incluído no h1
+            txBuffer = datagrama(load_hs, total_pacotes, 1, 0, 0, numero_server)
             com1.sendData(txBuffer)
             print("Pacote de handshake enviado!")
 
@@ -42,73 +52,100 @@ def main():
             print('enviou = {} bytes!' .format(txSize))
             time.sleep(0.5)
 
-
             print("Esperando resposta...")
-            timeout_5s(com1)
-
-            rxBuffer = com1.getData(16) #16 bytes pois o payload é de 1 byte (pra função datagrama não dar erro)
-
-            if check_h0(rxBuffer,2): #check se o pacote é de handshake (2 pelo server)
-                print("Handshake confirmado!")
-                comprimento = True #sai do loop do handshake
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
+            
+            # Implementar timeout para a resposta
+            start_time = time.time()
+            response_received = False
+            
+            while time.time() - start_time < 5 and not response_received:  # 5 segundos de timeout
+                if com1.rx.getBufferLen() > 0:
+                    # Ler os bytes disponíveis
+                    rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+                    
+                    if check_h0(rxBuffer, 2):  # Check se o pacote é de handshake (2 pelo server)
+                        print("Handshake confirmado!")
+                        comprimento = True  # Sai do loop do handshake
+                        response_received = True
+                        com1.rx.clearBuffer()
+                        time.sleep(0.5)
+                        clear_terminal()
+                    else:
+                        print(f"Recebido pacote tipo {rxBuffer[0]} ao invés de handshake")
+                        com1.rx.clearBuffer()
+                time.sleep(0.1)
+            
+            if not response_received:
+                print("Timeout! Servidor não respondeu.")
+                time.sleep(1)
                 clear_terminal()
 
-            else:
-                print("Handshake falhou!")
-                time.sleep(0.5)
-                com1.rx.clearBuffer()
-                clear_terminal()
+        if not comprimento:
+            print("Handshake falhou após várias tentativas. Encerrando.")
+            com1.disable()
+            return
 
-        imageR = "codes/img/image.png"
-        bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
-        bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
+        # Agora enviamos os pacotes de dados
+        i = 0  # Começamos do primeiro pacote (índice 0)
+        while i < total_pacotes:
+            # O número do pacote enviado começa em 1
+            packet_number = i + 1
+            data = datagrama(bytes_partes[i], packet_number, 3, 0, 0, numero_server)
+            com1.sendData(data)
 
-        i = 1
-        while i < len(bytes_partes):
-            data = datagrama(bytes_partes[i],i,3,0,0,numero_server)
-            txBuffer = data
-            com1.sendData(txBuffer)
-
-            txSize = com1.tx.getStatus()
-            print('enviou = {} bytes!' .format(txSize))
-
-            print("Pacote {} enviado!".format(i))
+            print(f"Pacote {packet_number} enviado! Tamanho: {len(bytes_partes[i])} bytes")
             time.sleep(0.5)
 
-            timeout_5s(com1)
+            # Esperar confirmação com timeout
+            start_time = time.time()
+            response_received = False
+            
+            while time.time() - start_time < 5 and not response_received:
+                if com1.rx.getBufferLen() > 0:
+                    rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+                    
+                    if check_h0(rxBuffer, 4):  # Tipo 4 é confirmação
+                        print(f"Pacote {packet_number} confirmado!")
+                        print("Iniciando envio do próximo pacote...")
+                        i += 1  # Avança para o próximo pacote
+                        response_received = True
+                    elif check_h0(rxBuffer, 6):  # Tipo 6 é erro
+                        expected_packet = rxBuffer[6]  # h6: pacote solicitado
+                        print(f"Erro! Servidor solicitou pacote {expected_packet}")
+                        # Ajuste do contador para reenviar o pacote correto
+                        i = expected_packet - 1
+                        response_received = True
+                    
+                    com1.rx.clearBuffer()
+                    time.sleep(0.5)
+                    clear_terminal()
+                else:
+                    time.sleep(0.1)
+            
+            if not response_received:
+                print("Timeout! Servidor não respondeu. Tentando novamente.")
+                # Sem incrementar i, tentará enviar o mesmo pacote
 
-            rxBuffer = com1.getData(16) #16 da funcao, arrumar depois a logica juntos. mas vai funfar
-
-            if certo(rxBuffer,i):
-                print("Pacote {} confirmado!".format(i))
-                print("Iniciando envio do pŕoximo pacote...")
-                i += 1
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
-                clear_terminal()
-
-            else:
-                print("Enviando o pacote {} novamente!".format(i))
-                com1.rx.clearBuffer()
-                time.sleep(0.5)
-                clear_terminal()
+        print("Todos os pacotes enviados. Verificando confirmação final...")
         
-        print("Confirmando que tudo foi enviado recebido no server corretamente!")
-        timeout_5s(com1)
-        rxBuffer = com1.rx.getData(16)
-
-        if certo(rxBuffer,len(bytes_partes)):
-            print("Pacote {} confirmado!".format(i))
-            print("Imagem enviada com sucesso!")
-            time.sleep(0.5)
-            clear_terminal()
-
-        else:
-            print("Erro na transmissão do pacote!")
-            time.sleep(0.5)
-            clear_terminal()
+        # Esperar confirmação final
+        start_time = time.time()
+        final_confirmation = False
+        
+        while time.time() - start_time < 5 and not final_confirmation:
+            if com1.rx.getBufferLen() > 0:
+                rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+                
+                if check_h0(rxBuffer, 4) and rxBuffer[1] == total_pacotes:
+                    print("Confirmação final recebida!")
+                    print("Imagem enviada com sucesso!")
+                    final_confirmation = True
+                
+                com1.rx.clearBuffer()
+            time.sleep(0.1)
+        
+        if not final_confirmation:
+            print("Não recebeu confirmação final.")
         
         print("-------------------------")
         print("Comunicação encerrada")
@@ -121,13 +158,12 @@ def main():
         com1.disable()
 
 def timeout_5s(com1):
-    tempo_antes = time.time()
-    while tempo_antes - time.time() < 5:
-        if com1.rx.getBufferLen() == 16:
-            break
-        else:
-            print("Time out")
-            break
-        
+    tempo_inicio = time.time()
+    while time.time() - tempo_inicio < 5:
+        if com1.rx.getBufferLen() > 0:
+            return True
+        time.sleep(0.1)
+    return False
+
 if __name__ == "__main__":
     main()
