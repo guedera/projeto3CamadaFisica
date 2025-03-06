@@ -88,10 +88,10 @@ def main():
             time.sleep(0.5)
 
             # Aguarde até que haja pelo menos 16 bytes para ler
-            while com1.rx.getBufferLen() < 16:
+            while com1.rx.getBufferLen() < 15:
                 time.sleep(0.1)
 
-            rxBuffer, _ = com1.getData(16)
+            rxBuffer, _ = com1.getData(15)
 
             if certo(rxBuffer,i):
                 print("Pacote {} confirmado!".format(i))
@@ -109,10 +109,10 @@ def main():
         
         print("Confirmando que tudo foi enviado recebido no server corretamente!")
         # Aguarde até que haja pelo menos 16 bytes para ler
-        while com1.rx.getBufferLen() < 16:
+        while com1.rx.getBufferLen() < 15:
             time.sleep(0.1)
             
-        rxBuffer, _ = com1.getData(16)
+        rxBuffer, _ = com1.getData(15)
 
         if certo(rxBuffer,len(bytes_partes)):
             print("Pacote {} confirmado!".format(i))
