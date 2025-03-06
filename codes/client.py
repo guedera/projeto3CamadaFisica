@@ -71,7 +71,7 @@ def main():
                 com1.rx.clearBuffer()
                 # clear_terminal()
 
-        imageR = "/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img/image.png"
+        imageR = "/home/guedera/Documents/Aulas/Camadas/projeto3CamadaFisica/codes/img/image.png"
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
         bytes_partes = separa(bytes_imagem) #separa a imagem em partes de no max 70 bytes e coloca numa lista
 
