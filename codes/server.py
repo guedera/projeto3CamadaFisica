@@ -3,6 +3,7 @@ import time
 import numpy as np
 from autolimpa import clear_terminal
 from recebe_datagrama import *
+import os
 
 
 serialName = "/dev/ttyACM0"
@@ -15,6 +16,9 @@ def main():
         com1 = enlace(serialName)
         com1.enable()
         com1.rx.clearBuffer()
+
+        # Buffer para armazenar os bytes da imagem recebida
+        image_buffer = bytearray()
 
         print("esperando 1 byte de sacrifício")
         com1.getData(1)
@@ -47,6 +51,7 @@ def main():
                     # Prepara para receber dados
                     contador = 1
                     n = 1  # Contador de pacotes esperados
+                    total_pacotes = 0  # Será atualizado com o valor real do primeiro pacote
                     
         # Loop principal de recebimento de dados
         while True:
@@ -58,10 +63,16 @@ def main():
                     payload, _ = com1.getData(h3)  # Lê o payload
                     EoP, _ = com1.getData(3)  # Lê o EoP
                     
+                    if h1 > 0 and total_pacotes == 0:
+                        total_pacotes = h1  # Atualiza o total de pacotes a receber
+                    
                     print(f"Recebido pacote {h4} de {h1} pacotes")
                     
                     # Verifica se é o pacote esperado
                     if h4 == n:
+                        # Adiciona o payload ao buffer da imagem
+                        image_buffer.extend(payload)
+                        
                         # Pacote correto, envia confirmação
                         head_bytes = bytearray(head)
                         head_bytes[0] = 4  # Tipo de confirmação positiva
@@ -88,7 +99,18 @@ def main():
                     
             time.sleep(0.1)
         
-        print("\n")
+        # Salva a imagem recebida
+        img_path = '/home/guedes/Documents/Faculdade/Camadas/projeto3CamadaFisica/codes/img'
+        
+        # Garante que o diretório existe
+        os.makedirs(img_path, exist_ok=True)
+        
+        # Salva o buffer como uma imagem
+        with open(f'{img_path}/imagemcopia.png', 'wb') as img_file:
+            img_file.write(image_buffer)
+            
+        print(f"\nImagem salva em {img_path}/imagemcopia.png")
+        print(f"Tamanho da imagem: {len(image_buffer)} bytes")
         print("\n")
         print("Comunicação encerrada")
         print("-------------------------")
