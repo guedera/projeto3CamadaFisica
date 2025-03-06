@@ -77,8 +77,8 @@ def main():
 
         i = 1
         print(len(bytes_partes))
-        while i < len(bytes_partes):
-            data = datagrama(bytes_partes[i],i,3,0,0,numero_server,len(bytes_partes))
+        while i <= len(bytes_partes):
+            data = datagrama(bytes_partes[i-1],i,3,0,0,numero_server,len(bytes_partes))
             txBuffer = data
             com1.sendData(txBuffer)
 

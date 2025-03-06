@@ -59,15 +59,14 @@ def main():
             if com1.rx.getBufferLen() >= 16:
                 head, _ = com1.getData(12)  # Lê o cabeçalho
                 h0,h1,h2,h3,h4,h5,h6,h7,_,_,_,_ = interpreta_head(head)
-                print (h3)
                 
                 if h0 == 3:  # Se for pacote de dados
-                    payload, _ = com1.getData(h3)  # Lê o payload
+                    payload, _ = com1.getData(h5)  # Lê o payload (tamanho está em h5 agora)
                     EoP, _ = com1.getData(3)  # Lê o EoP
                     
-                    # CORREÇÃO: Usar h1 para determinar o número total de pacotes
+                    # CORREÇÃO: Usar h3 para determinar o número total de pacotes
                     if total_pacotes == 0:
-                        total_pacotes = h1  # Atualiza o total de pacotes a receber
+                        total_pacotes = h3  # Atualiza o total de pacotes a receber
                         print(f"Total de pacotes a receber: {total_pacotes}")
                     
                     print(f"Recebido pacote {h4} de {total_pacotes} pacotes")
