@@ -48,8 +48,6 @@ def main():
                     contador = 1
                     n = 1  # Contador de pacotes esperados
                     
-            time.sleep(0.1)
-
         # Loop principal de recebimento de dados
         while True:
             if com1.rx.getBufferLen() >= 16:

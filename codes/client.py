@@ -21,7 +21,7 @@ def main():
         time.sleep(0.5)
 
         com1.rx.clearBuffer()
-        clear_terminal()
+        # clear_terminal()
 
         #Handshake
         comprimento = False
@@ -43,16 +43,11 @@ def main():
             time.sleep(0.5)
 
             print("Esperando resposta...")
-            # Adiciona timeout para o handshake
-            timeout = time.time() + 5  # 5 segundos de timeout
             
             # Aguarde até que haja pelo menos 15 bytes para ler (12 de head + 3 de EoP)
             while com1.rx.getBufferLen() < 15:
                 print(com1.rx.getBufferLen())
                 time.sleep(0.1)
-                if time.time() > timeout:
-                    print("Timeout de handshake!")
-                    break
             
             # Se recebeu resposta    
             if com1.rx.getBufferLen() >= 15:
@@ -64,17 +59,17 @@ def main():
                     comprimento = True #sai do loop do handshake
                     com1.rx.clearBuffer()
                     time.sleep(0.5)
-                    clear_terminal()
+                    # clear_terminal()
                 else:
                     print("Handshake falhou! Resposta inválida.")
                     time.sleep(0.5)
                     com1.rx.clearBuffer()
-                    clear_terminal()
+                    # clear_terminal()
             else:
                 print("Não recebeu resposta do servidor. Tentando novamente...")
                 time.sleep(0.5)
                 com1.rx.clearBuffer()
-                clear_terminal()
+                # clear_terminal()
 
         imageR = "codes/img/image.png"
         bytes_imagem = open(imageR, 'rb').read() #imagem em sequencia de bytes
@@ -104,13 +99,13 @@ def main():
                 i += 1
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
-                clear_terminal()
+                # clear_terminal()
 
             else:
                 print("Enviando o pacote {} novamente!".format(i))
                 com1.rx.clearBuffer()
                 time.sleep(0.5)
-                clear_terminal()
+                # clear_terminal()
         
         print("Confirmando que tudo foi enviado recebido no server corretamente!")
         # Aguarde até que haja pelo menos 16 bytes para ler
@@ -123,12 +118,12 @@ def main():
             print("Pacote {} confirmado!".format(i))
             print("Imagem enviada com sucesso!")
             time.sleep(0.5)
-            clear_terminal()
+            # clear_terminal()
 
         else:
             print("Erro na transmissão do pacote!")
             time.sleep(0.5)
-            clear_terminal()
+            # clear_terminal()
         
         print("-------------------------")
         print("Comunicação encerrada")
