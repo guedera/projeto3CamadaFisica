@@ -27,7 +27,7 @@ def main():
         com1.getData(1)
         com1.rx.clearBuffer()
         time.sleep(0.5)
-
+        
         print("Abriu a comunicação!")
         print("\n")
         print("Recepção iniciada!")

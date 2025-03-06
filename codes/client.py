@@ -88,10 +88,10 @@ def main():
         i = 1
         print(len(bytes_partes))
         while i <= len(bytes_partes):
+            time.sleep(0.5)
             data = datagrama(bytes_partes[i-1],i,3,0,0,numero_server,len(bytes_partes))
             txBuffer = data
-            com1.sendData(txBuffer)
-
+            com1.sendData(txBuffer)            
             txSize = com1.tx.getStatus()
             print('enviou = {} bytes!' .format(txSize))
 
@@ -124,6 +124,7 @@ def main():
                         response_received = True
                     else:
                         print("Resposta incorreta recebida. Enviando o pacote {} novamente!".format(i))
+                        time.sleep(.5)
                         retries += 1
                         com1.rx.clearBuffer()
                         com1.sendData(txBuffer)
