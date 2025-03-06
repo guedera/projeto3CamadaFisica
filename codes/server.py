@@ -20,6 +20,20 @@ def main():
         com1.rx.clearBuffer()
         
         print("-------------------------")
+        print("Esperando byte de sacrifício...")
+        print("-------------------------")
+        
+        # Aguarda o byte de sacrifício (não bloqueante)
+        while com1.rx.getBufferLen() == 0:
+            time.sleep(0.1)
+            
+        # Recebe o byte de sacrifício
+        sacrifice_byte, _ = com1.getData(1)
+        print("Byte de sacrifício recebido!")
+        time.sleep(0.5)
+        com1.rx.clearBuffer()
+        
+        print("-------------------------")
         print("Esperando handshake do client...")
         print("-------------------------")
         
@@ -28,10 +42,9 @@ def main():
         
         # Handshake stage
         handshake_confirmed = False
-        start_time = time.time()
         
-        # Loop para aguardar handshake
-        while not handshake_confirmed and time.time() - start_time < 30:  # 30 segundos de timeout
+        # Loop para aguardar handshake (sem timeout)
+        while not handshake_confirmed:
             if com1.rx.getBufferLen() > 0:
                 # Lê o que está disponível
                 rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
@@ -61,28 +74,21 @@ def main():
                     com1.rx.clearBuffer()
             else:
                 print("Aguardando dados...")
-                time.sleep(0.5)
-        
-        if not handshake_confirmed:
-            print("Timeout no handshake. Encerrando.")
-            com1.disable()
-            return
+                time.sleep(0.1)
         
         # Data reception stage
         expected_packet = 1
         last_received = 0
-        total_packets = total_packets  # Já obtivemos do handshake
         
         # Start receiving packets
         while last_received < total_packets:
             print(f"Esperando pacote {expected_packet}...")
             
-            # Wait for data with timeout
-            start_time = time.time()
+            # Wait for data (sem timeout)
             data_received = False
             
-            while time.time() - start_time < 10 and not data_received:  # 10 segundos de timeout por pacote
-                if com1.rx.getBufferLen() > 0:
+            while not data_received:
+                if com1.rx.getBufferLen() >= 12:  # Pelo menos o cabeçalho
                     # Ler o tamanho do header primeiro
                     rxBuffer, nRx = com1.getData(12)  # Header tem 12 bytes
                     
@@ -94,6 +100,10 @@ def main():
                         
                         print(f"Recebendo pacote {packet_number}, payload: {payload_size} bytes")
                         
+                        # Aguarda até ter bytes suficientes para o payload + EOP
+                        while com1.rx.getBufferLen() < payload_size + 3:
+                            time.sleep(0.01)
+                            
                         # Agora lê o payload e o EOP
                         payload_eop, _ = com1.getData(payload_size + 3)  # payload + EOP (3 bytes)
                         
@@ -144,38 +154,31 @@ def main():
                     else:
                         print(f"Recebido pacote tipo {rxBuffer[0]} ao invés de dados")
                         com1.rx.clearBuffer()
-                time.sleep(0.1)
-            
-            if not data_received:
-                print("Timeout! Nenhum dado recebido em 10 segundos.")
-                # Enviar mensagem de timeout (tipo 5)
-                timeout_message = datagrama(b'0', 0, 5, 0, 0, server_id)
-                com1.sendData(timeout_message)
-                break
+                else:
+                    time.sleep(0.01)
             
             # Limpa o buffer para o próximo pacote
             com1.rx.clearBuffer()
-            time.sleep(0.5)
+            time.sleep(0.2)
             clear_terminal()
         
         # Salvar o arquivo recebido
-        if last_received == total_packets:
-            print("Todos os pacotes recebidos com sucesso!")
+        print("Todos os pacotes recebidos com sucesso!")
+        
+        # Garante que o diretório existe
+        img_dir = "img"
+        if not os.path.exists(img_dir):
+            os.makedirs(img_dir)
             
-            # Garante que o diretório existe
-            img_dir = "img"
-            if not os.path.exists(img_dir):
-                os.makedirs(img_dir)
-                
-            # Salva a imagem
-            with open(os.path.join(img_dir, "imagecopy.png"), "wb") as file:
-                file.write(file_bytes)
-            print("Imagem salva como 'img/imagecopy.png'")
-            
-            # Envia confirmação final
-            final_response = datagrama(b'0', total_packets, 4, 0, 1, server_id)
-            com1.sendData(final_response)
-            print("Enviada confirmação final")
+        # Salva a imagem
+        with open(os.path.join(img_dir, "imagecopy.png"), "wb") as file:
+            file.write(file_bytes)
+        print("Imagem salva como 'img/imagecopy.png'")
+        
+        # Envia confirmação final
+        final_response = datagrama(b'0', total_packets, 4, 0, 1, server_id)
+        com1.sendData(final_response)
+        print("Enviada confirmação final")
         
         # Encerra comunicação
         print("-------------------------")
@@ -187,14 +190,6 @@ def main():
         print("ops! :-\\")
         print(erro)
         com1.disable()
-
-def timeout_5s(com1):
-    tempo_inicio = time.time()
-    while time.time() - tempo_inicio < 5:
-        if com1.rx.getBufferLen() > 0:
-            return True
-        time.sleep(0.1)
-    return False
 
 if __name__ == "__main__":
     main()
